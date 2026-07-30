@@ -1,0 +1,19 @@
+# Prefer the conda_env.yaml files retained inside the project.
+# Install PyTorch separately to match the local CUDA driver.
+
+numpy>=1.23,<2.0
+scipy>=1.9
+pandas>=1.5
+matplotlib>=3.6
+h5py>=3.8
+tqdm>=4.64
+opencv-python>=4.7
+Pillow>=9.4
+PyYAML>=6.0
+einops>=0.6
+packaging>=23.0
+imageio>=2.28
+imageio-ffmpeg>=0.4.8
+dm-control>=1.0.14
+mujoco>=2.3
+IPython>=8.0

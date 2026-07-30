@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the associated paper."
+title: "PC-DVIL: Perturbation-Consistent Dense Visual Imitation Learning for Robust and Efficient Bimanual Precision Manipulation"
+type: software
+authors:
+  - family-names: "AUTHOR_FAMILY_NAME"
+    given-names: "AUTHOR_GIVEN_NAME"
+version: "1.0.0"
+date-released: "2026-07-30"
+repository-code: "https://github.com/USERNAME/PC-DVIL"
+license: "MIT"
+preferred-citation:
+  type: article
+  title: "Perturbation-Consistent Dense Visual Imitation Learning for Robust and Efficient Bimanual Precision Manipulation"
+  authors:
+    - family-names: "AUTHOR_FAMILY_NAME"
+      given-names: "AUTHOR_GIVEN_NAME"
+  journal: "JOURNAL_NAME"
+  year: 2026
+  doi: "DOI_PLACEHOLDER"
