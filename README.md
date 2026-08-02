@@ -86,6 +86,10 @@ DINOv2 trainable blocks: last 8
 Dense-token pooling: 2
 Fixed evaluation poses: 50 poses, seed1000
 Deployment cache interval: 2
+Simulation training: 5,000 epochs, batch size 2
+Real-robot training: 6,000 epochs, batch size 4
+Optimizer: AdamW, weight decay 1e-4
+Checkpoint: lowest validation loss (policy_best.ckpt)
 ```
 
 Detailed commands are in [REPRODUCIBILITY.md](REPRODUCIBILITY.md).
@@ -112,14 +116,15 @@ Some historical real-robot checkpoints may contain an auxiliary stage-prediction
 
 ## Citation
 
-Replace the placeholders in `CITATION.cff` before release.
+Until an article DOI is assigned, cite the software release as follows. The preferred article citation in `CITATION.cff` can be updated after publication.
 
 ```bibtex
-@article{pcdvil,
+@software{pcdvil2026,
   title   = {Perturbation-Consistent Dense Visual Imitation Learning for Robust and Efficient Bimanual Precision Manipulation},
-  author  = {Author One and Author Two and Others},
-  journal = {To appear},
-  year    = {2026}
+  author  = {Jiahui Dai and Zhongqi Zhao and Junhao Yu and Yuzun Cheng},
+  year    = {2026},
+  version = {1.0.0},
+  url     = {https://github.com/zhao1292197115/PC-DVIL}
 }
 ```
 
