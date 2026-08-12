@@ -1,0 +1,43 @@
+# Python caches and local environments
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+
+# Editor and operating-system metadata
+.vscode/
+.idea/
+.DS_Store
+
+# Experiment tracking and generated logs
+wandb/
+*.log
+
+# Demonstration datasets and ROS recordings
+/data/
+/act-baseline/data/
+/act-main/data/
+/act-main_trir/data/
+/cobot_magic/data/
+*.hdf5
+*.h5
+*.bag
+*.db3
+
+# Training outputs and model weights
+/ckpts/
+/act-baseline/ckpts/
+/act-main/ckpts/
+/act-main_trir/ckpts/
+/cobot_magic/train/
+*.ckpt
+*.pth
+*.pt
+*.onnx
+
+# Large generated media
+*.mp4
+*.avi
+*.mkv
