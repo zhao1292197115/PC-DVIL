@@ -17,14 +17,20 @@ print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU")
 PY
 ```
 
+### Dataset split
+
+Both the simulation and real-robot loaders use `train_ratio = 0.8`. With the released 50-episode datasets, `np.random.permutation` therefore assigns 40 episodes to training and the remaining 10 to validation. The dense simulation and PC-DVIL entry scripts apply the command seed (0 in the commands below) before constructing the loader. The retained legacy ACT baseline and real-robot training entry scripts apply seed 1 before their loader split and then apply the command seed to model training. Normalization statistics are computed over all 50 episodes by the retained loader implementation.
+
 ## 2. Original three-view ACT
 
 ```bash
 cd act-baseline
 conda activate act_sim
 
-python3 imitate_episodes.py   --task_name sim_insertion_scripted   --ckpt_dir ckpts/act_resnet_3cam   --policy_class ACT   --batch_size 2   --num_epochs 5000   --lr 1e-5   --seed 0   --kl_weight 10   --chunk_size 100   --hidden_dim 512   --dim_feedforward 3200   --enc_layers 4   --dec_layers 7   --nheads 8
+python3 imitate_episodes.py   --task_name sim_insertion_scripted   --ckpt_dir ckpts/act_resnet_3cam   --policy_class ACT   --batch_size 2   --num_epochs 5000   --lr 1e-5   --seed 0   --kl_weight 10   --chunk_size 100   --hidden_dim 512   --dim_feedforward 3200
 ```
+
+The baseline entry script fixes the transformer configuration internally to 4 encoder layers, 7 decoder layers, and 8 attention heads; it does not expose those three values as command-line flags.
 
 ## 3. Dense-ACT
 
@@ -52,7 +58,7 @@ This configuration uses action-chunk consistency only (`lambda_feat = 0`). Selec
 cd act-main_trir
 conda activate act_sim
 
-python3 imitate_episodes_dinov2_fixedposes.py   --task_name sim_insertion_scripted   --ckpt_dir ckpts/dinov2_trirpp_nostage_sim_insertion_5000   --policy_class ACT   --batch_size 2   --num_epochs 5000   --lr 1e-5   --seed 0   --backbone dinov2_vits14   --lr_backbone 5e-6   --dinov2_train_layers 8   --dinov2_pool 2   --kl_weight 10   --chunk_size 100   --hidden_dim 512   --dim_feedforward 3200   --enc_layers 4   --dec_layers 7   --nheads 8   --amp   --amp_dtype bf16   --use_trir   --trir_aug_prob 0.5   --trir_view_prob 0.8   --trir_aug_weight 0.4   --trir_cons_weight 0.08   --trir_feat_cons_weight 0.02   --trir_brightness 0.25   --trir_contrast 0.25   --trir_gamma 0.20   --trir_saturation 0.15   --trir_blur_prob 0.08   --trir_shadow_prob 0.20   --trir_shadow_strength 0.20   --trir_erasing_prob 0.0   --trir_noise_std 0.01
+python3 imitate_episodes_dinov2_stageaware_v7.py   --task_name sim_insertion_scripted   --ckpt_dir ckpts/dinov2_trirpp_nostage_sim_insertion_5000   --policy_class ACT   --batch_size 2   --num_epochs 5000   --lr 1e-5   --seed 0   --backbone dinov2_vits14   --lr_backbone 5e-6   --dinov2_train_layers 8   --dinov2_pool 2   --kl_weight 10   --chunk_size 100   --hidden_dim 512   --dim_feedforward 3200   --enc_layers 4   --dec_layers 7   --nheads 8   --amp   --amp_dtype bf16   --use_trir   --trir_aug_prob 0.5   --trir_view_prob 0.8   --trir_aug_weight 0.4   --trir_cons_weight 0.08   --trir_feat_cons_weight 0.02   --trir_brightness 0.25   --trir_contrast 0.25   --trir_gamma 0.20   --trir_saturation 0.15   --trir_blur_prob 0.08   --trir_shadow_prob 0.20   --trir_shadow_strength 0.20   --trir_erasing_prob 0.0   --trir_noise_std 0.01
 ```
 
 All simulation models use AdamW with weight decay `1e-4`. Validation is run every five epochs, and `policy_best.ckpt` is the checkpoint with the lowest validation loss. Run the retained entry script with `-h` before training because historical snapshots may expose slightly different flag names.
@@ -137,7 +143,7 @@ cd cobot_magic/aloha-devel
 conda activate aloha
 export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:64
 
-python3 act/inference.py   --ckpt_dir ../train/dinov2_trirpp_stageaware_battery_6000   --ckpt_name policy_best.ckpt   --ckpt_stats_name dataset_stats.pkl   --policy_class ACT   --backbone dinov2_vits14   --dinov2_repo ../dinov2_local/dinov2-main   --dinov2_weights ../dinov2_local/dinov2_vits14_pretrain.pth   --dinov2_train_layers 8   --dinov2_pool 2   --chunk_size 100   --hidden_dim 512   --dim_feedforward 3200   --enc_layers 4   --dec_layers 7   --nheads 8   --temporal_agg True   --feature_cache   --cache_interval 2   --use_stage_pred   --stage_num 5   --stage_hidden_dim 128   --publish_rate 40
+python3 act/inference.py   --ckpt_dir ../train/dinov2_trirpp_stageaware_battery_6000   --ckpt_name policy_best.ckpt   --ckpt_stats_name dataset_stats.pkl   --policy_class ACT   --backbone dinov2_vits14   --dinov2_repo ../dinov2_local/dinov2-main   --dinov2_weights ../dinov2_local/dinov2_vits14_pretrain.pth   --dinov2_train_layers 8   --dinov2_pool 2   --chunk_size 100   --hidden_dim 512   --dim_feedforward 3200   --enc_layers 4   --dec_layers 7   --nheads 8   --temporal_agg True   --feature_cache   --cache_interval 2   --publish_rate 40
 ```
 
-A legacy checkpoint containing a stage head must be loaded with its matching compatibility flags.
+Stage-aware options are training-only. The inference loader uses non-strict state-dict loading, so auxiliary `stage_head` entries in a checkpoint are ignored without requiring stage flags.

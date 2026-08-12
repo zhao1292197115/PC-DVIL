@@ -86,6 +86,7 @@ DINOv2 trainable blocks: last 8
 Dense-token pooling: 2
 Fixed evaluation poses: 50 poses, seed1000
 Deployment cache interval: 2
+Demonstrations: 50 episodes, randomly split 40 training / 10 validation (80/20)
 Simulation training: 5,000 epochs, batch size 2
 Real-robot training: 6,000 epochs, batch size 4
 Optimizer: AdamW, weight decay 1e-4
@@ -108,7 +109,7 @@ ROS bags
 training logs
 ```
 
-Demonstration data and trained checkpoints may be provided through GitHub Releases, an institutional repository, or reasonable request to the corresponding author. See [DATA_AND_MODEL_AVAILABILITY.md](DATA_AND_MODEL_AVAILABILITY.md).
+The root `.gitignore` prevents newly created local datasets, checkpoints, and generated training outputs from being added accidentally; it does not remove files already tracked by Git. Demonstration data and trained checkpoints may be provided through GitHub Releases, an institutional repository, or reasonable request to the corresponding author. See [DATA_AND_MODEL_AVAILABILITY.md](DATA_AND_MODEL_AVAILABILITY.md).
 
 ## Legacy stage-aware code
 
