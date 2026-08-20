@@ -26,9 +26,11 @@ PC-DVIL/
 | Folder | Method | Visual encoder | Perturbation consistency | Cache |
 |---|---|---|---|---|
 | `act-baseline` | ACT-3Cam | ResNet | No | No |
-| `act-main` | Dense-ACT | DINOv2 ViT-S/14, last8, pool2 | No | Optional |
-| `act-main_trir` | PC-DVIL | DINOv2 ViT-S/14, last8, pool2 | Yes | Cache2 at deployment |
-| `cobot_magic` | Real-robot PC-DVIL | Three-view dense visual encoder | Yes | Cache2 |
+| `act-main` | Dense-ACT | DINOv2 ViT-S/14, last8, pool2 | No | Optional simulation TFC |
+| `act-main_trir` | PC-DVIL | DINOv2 ViT-S/14, last8, pool2 | Yes | Simulation TFC (`K_c = 2`) |
+| `cobot_magic` | Real-robot PC-DVIL | Three-view dense visual encoder | Yes | Fixed two-step policy-query schedule |
+
+Simulation TFC reuses dense visual features while retaining current proprioception and fresh action decoding at every control step. The released real-robot runner instead queries the policy every two publish steps and obtains the intervening command from the previously predicted action chunk through temporal aggregation; this is not feature-level TFC.
 
 ## Tested environments
 
@@ -85,9 +87,10 @@ KL weight: 10
 DINOv2 trainable blocks: last 8
 Dense-token pooling: 2
 Fixed evaluation poses: 50 poses, seed1000
-Deployment cache interval: 2
+Simulation TFC refresh interval: K_c = 2
+Real-robot policy-query interval: 2 publish steps
 Demonstrations: 50 episodes, randomly split 40 training / 10 validation (80/20)
-Simulation training: 5,000 epochs, batch size 2
+Simulation training: 2,000 epochs, batch size 2
 Real-robot training: 6,000 epochs, batch size 4
 Optimizer: AdamW, weight decay 1e-4
 Checkpoint: lowest validation loss (policy_best.ckpt)
@@ -113,7 +116,7 @@ The root `.gitignore` prevents newly created local datasets, checkpoints, and ge
 
 ## Legacy stage-aware code
 
-Some historical real-robot checkpoints may contain an auxiliary stage-prediction head for state-dict compatibility. This module is not treated as a core PC-DVIL contribution and is not required for the main drift or Cache2 analysis.
+Some historical real-robot checkpoints may contain an auxiliary stage-prediction head for state-dict compatibility. This module is not treated as a core PC-DVIL contribution and is not required for the main drift or simulation TFC analysis.
 
 ## Citation
 

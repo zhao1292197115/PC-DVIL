@@ -19,7 +19,7 @@ PY
 
 ### Dataset split
 
-Both the simulation and real-robot loaders use `train_ratio = 0.8`. With the released 50-episode datasets, `np.random.permutation` therefore assigns 40 episodes to training and the remaining 10 to validation. The dense simulation and PC-DVIL entry scripts apply the command seed (0 in the commands below) before constructing the loader. The retained legacy ACT baseline and real-robot training entry scripts apply seed 1 before their loader split and then apply the command seed to model training. Normalization statistics are computed over all 50 episodes by the retained loader implementation.
+Both the simulation and real-robot loaders use `train_ratio = 0.8`. With the released 50-episode datasets, `np.random.permutation` therefore assigns 40 episodes to training and the remaining 10 to validation. All reported training commands use optimization seed 0. The dense simulation and PC-DVIL entry scripts apply the command seed before constructing the loader. The retained ACT baseline and real-robot entry scripts call `set_seed(1)` only before the loader split; their training functions then reset the random state to the command seed (`--seed 0`) before model initialization and optimization. Thus, the value 1 in those retained entry points is a loader-split implementation detail, not the reported optimization seed. Normalization statistics are computed over all 50 episodes by the retained loader implementation.
 
 ## 2. Original three-view ACT
 
@@ -27,7 +27,7 @@ Both the simulation and real-robot loaders use `train_ratio = 0.8`. With the rel
 cd act-baseline
 conda activate act_sim
 
-python3 imitate_episodes.py   --task_name sim_insertion_scripted   --ckpt_dir ckpts/act_resnet_3cam   --policy_class ACT   --batch_size 2   --num_epochs 5000   --lr 1e-5   --seed 0   --kl_weight 10   --chunk_size 100   --hidden_dim 512   --dim_feedforward 3200
+python3 imitate_episodes.py   --task_name sim_insertion_scripted   --ckpt_dir ckpts/act_resnet_3cam   --policy_class ACT   --batch_size 2   --num_epochs 2000   --lr 1e-5   --seed 0   --kl_weight 10   --chunk_size 100   --hidden_dim 512   --dim_feedforward 3200
 ```
 
 The baseline entry script fixes the transformer configuration internally to 4 encoder layers, 7 decoder layers, and 8 attention heads; it does not expose those three values as command-line flags.
@@ -38,28 +38,32 @@ The baseline entry script fixes the transformer configuration internally to 4 en
 cd act-main
 conda activate act_sim
 
-python3 imitate_episodes_dinov2_fixedposes.py   --task_name sim_insertion_scripted   --ckpt_dir ckpts/dinov2_randpose_last8_pool2_3cam   --policy_class ACT   --batch_size 2   --num_epochs 5000   --lr 1e-5   --seed 0   --backbone dinov2_vits14   --lr_backbone 5e-6   --dinov2_train_layers 8   --dinov2_pool 2   --kl_weight 10   --chunk_size 100   --hidden_dim 512   --dim_feedforward 3200   --enc_layers 4   --dec_layers 7   --nheads 8
+python3 imitate_episodes_dinov2_fixedposes.py   --task_name sim_insertion_scripted   --ckpt_dir ckpts/dinov2_randpose_last8_pool2_3cam   --policy_class ACT   --batch_size 2   --num_epochs 2000   --lr 1e-5   --seed 0   --backbone dinov2_vits14   --lr_backbone 5e-6   --dinov2_train_layers 8   --dinov2_pool 2   --kl_weight 10   --chunk_size 100   --hidden_dim 512   --dim_feedforward 3200   --enc_layers 4   --dec_layers 7   --nheads 8
 ```
 
-## 4. Action-consistency configuration used for the three-seed 60.0% result
+## 4. Loss-wise perturbation-consistency variants
+
+All loss-wise variants retain the standard Dense-ACT reconstruction and KL objectives. The labels below indicate only which additional perturbation-consistency terms are enabled. They use the same 2,000-epoch budget and perturbation distribution; TFC and Stage Aux. are disabled during training and evaluation for this ablation.
+
+Use the following command for the full PC-DVIL loss configuration:
 
 ```bash
 cd act-main_trir
 conda activate act_sim
 
-python3 imitate_episodes_dinov2_fixedposes.py   --task_name sim_insertion_scripted   --ckpt_dir ckpts/dinov2_last8_trir_weak_3cam   --policy_class ACT   --batch_size 2   --num_epochs 5000   --lr 1e-5   --seed 0   --backbone dinov2_vits14   --lr_backbone 5e-6   --dinov2_train_layers 8   --dinov2_pool 2   --kl_weight 10   --chunk_size 100   --hidden_dim 512   --dim_feedforward 3200   --enc_layers 4   --dec_layers 7   --nheads 8   --amp   --amp_dtype bf16   --use_trir   --trir_aug_prob 0.3   --trir_view_prob 0.67   --trir_aug_weight 0.5   --trir_cons_weight 0.05   --trir_noise_std 0.01   --trir_erasing_prob 0.0
+python3 imitate_episodes_dinov2_stageaware_v7.py   --task_name sim_insertion_scripted   --ckpt_dir ckpts/dinov2_trirpp_nostage_sim_insertion_2000   --policy_class ACT   --batch_size 2   --num_epochs 2000   --lr 1e-5   --seed 0   --backbone dinov2_vits14   --lr_backbone 5e-6   --dinov2_train_layers 8   --dinov2_pool 2   --kl_weight 10   --chunk_size 100   --hidden_dim 512   --dim_feedforward 3200   --enc_layers 4   --dec_layers 7   --nheads 8   --amp   --amp_dtype bf16   --use_trir   --trir_aug_prob 0.5   --trir_view_prob 0.8   --trir_aug_weight 0.4   --trir_cons_weight 0.08   --trir_feat_cons_weight 0.02   --trir_brightness 0.25   --trir_contrast 0.25   --trir_gamma 0.20   --trir_saturation 0.15   --trir_blur_prob 0.08   --trir_shadow_prob 0.20   --trir_shadow_strength 0.20   --trir_erasing_prob 0.0   --trir_noise_std 0.01
 ```
 
-This configuration uses action-chunk consistency only (`lambda_feat = 0`). Selected views use brightness factor `U(0.55, 1.15)`, contrast factor `U(0.75, 1.25)`, independent RGB-channel gains `U(0.85, 1.15)`, and Gaussian noise with standard deviation `0.01`. Gamma, saturation, shadow, blur, and random erasing are disabled. If a selected batch samples no view, one view receives fallback brightness `U(0.55, 0.90)`.
+To reproduce the other loss-wise rows, keep every common flag above unchanged, use a distinct `--ckpt_dir`, and change only the three additional loss weights:
 
-## 4.1 Dual-level PC-DVIL configuration used for the TFC-matched evaluations
+| Paper label | `--trir_aug_weight` | `--trir_cons_weight` | `--trir_feat_cons_weight` |
+|---|---:|---:|---:|
+| `Dense-ACT + L_aug` | `0.4` | `0` | `0` |
+| `Dense-ACT + L_aug + L_act` | `0.4` | `0.08` | `0` |
+| `Dense-ACT + L_aug + L_feat` | `0.4` | `0` | `0.02` |
+| `Full PC-DVIL` | `0.4` | `0.08` | `0.02` |
 
-```bash
-cd act-main_trir
-conda activate act_sim
-
-python3 imitate_episodes_dinov2_stageaware_v7.py   --task_name sim_insertion_scripted   --ckpt_dir ckpts/dinov2_trirpp_nostage_sim_insertion_5000   --policy_class ACT   --batch_size 2   --num_epochs 5000   --lr 1e-5   --seed 0   --backbone dinov2_vits14   --lr_backbone 5e-6   --dinov2_train_layers 8   --dinov2_pool 2   --kl_weight 10   --chunk_size 100   --hidden_dim 512   --dim_feedforward 3200   --enc_layers 4   --dec_layers 7   --nheads 8   --amp   --amp_dtype bf16   --use_trir   --trir_aug_prob 0.5   --trir_view_prob 0.8   --trir_aug_weight 0.4   --trir_cons_weight 0.08   --trir_feat_cons_weight 0.02   --trir_brightness 0.25   --trir_contrast 0.25   --trir_gamma 0.20   --trir_saturation 0.15   --trir_blur_prob 0.08   --trir_shadow_prob 0.20   --trir_shadow_strength 0.20   --trir_erasing_prob 0.0   --trir_noise_std 0.01
-```
+The Dense-ACT reference is the configuration in Section 3 with no `--use_trir` flag. All loss-wise labels above retain the standard reconstruction and KL terms.
 
 All simulation models use AdamW with weight decay `1e-4`. Validation is run every five epochs, and `policy_best.ckpt` is the checkpoint with the lowest validation loss. Run the retained entry script with `-h` before training because historical snapshots may expose slightly different flag names.
 
@@ -82,7 +86,7 @@ Common evaluation flags:
 --eval_pose_path eval_poses/sim_insertion_eval_seed1000_50.pkl
 ```
 
-For PC-DVIL deployment evaluation, enable Cache2:
+For simulation TFC evaluation with `K_c = 2`, enable feature caching as follows:
 
 ```text
 --feature_cache --cache_interval 2
@@ -136,7 +140,7 @@ python3 act/train.py   --dataset_dir ../data   --task_name aloha_mobile_dummy   
 
 The real-robot RGB inputs are three synchronized `480 x 640` streams. The inference program publishes commands at 40 Hz unless `--publish_rate` is explicitly overridden.
 
-## 8. Real-robot inference with Cache2
+## 8. Real-robot inference with a fixed two-step policy-query schedule
 
 ```bash
 cd cobot_magic/aloha-devel
@@ -145,5 +149,7 @@ export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:64
 
 python3 act/inference.py   --ckpt_dir ../train/dinov2_trirpp_stageaware_battery_6000   --ckpt_name policy_best.ckpt   --ckpt_stats_name dataset_stats.pkl   --policy_class ACT   --backbone dinov2_vits14   --dinov2_repo ../dinov2_local/dinov2-main   --dinov2_weights ../dinov2_local/dinov2_vits14_pretrain.pth   --dinov2_train_layers 8   --dinov2_pool 2   --chunk_size 100   --hidden_dim 512   --dim_feedforward 3200   --enc_layers 4   --dec_layers 7   --nheads 8   --temporal_agg True   --feature_cache   --cache_interval 2   --publish_rate 40
 ```
+
+In this retained real-robot runner, `--feature_cache --cache_interval 2` are historical flag names. They set the effective policy-query interval to two publish steps and reuse the intervening command from the previously predicted action chunk through temporal aggregation. They do not activate the feature-level TFC used in the simulation study.
 
 Stage-aware options are training-only. The inference loader uses non-strict state-dict loading, so auxiliary `stage_head` entries in a checkpoint are ignored without requiring stage flags.

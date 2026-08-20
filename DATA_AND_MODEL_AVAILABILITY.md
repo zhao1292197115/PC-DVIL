@@ -26,9 +26,9 @@ Distribute checkpoints through GitHub Releases, Zenodo, an institutional reposit
 ## Expected local assets
 
 ```text
-act-main_trir/ckpts/dinov2_randpose_last8_pool2_3cam/
-act-main_trir/ckpts/dinov2_last8_trir_weak_3cam/
-act-main_trir/ckpts/dinov2_trirpp_nostage_sim_insertion_5000/
+act-baseline/ckpts/act_resnet_3cam/
+act-main/ckpts/dinov2_randpose_last8_pool2_3cam/
+act-main_trir/ckpts/dinov2_trirpp_nostage_sim_insertion_2000/
 act-main_trir/eval_poses/sim_insertion_eval_seed1000_50.pkl
 cobot_magic/data/
 cobot_magic/train/dinov2_trirpp_stageaware_battery_6000/
@@ -39,6 +39,6 @@ Requests for the demonstration data or trained checkpoints may be sent to:
 
 ```text
 Corresponding author: Zhongqi Zhao
-Email: 1292197115@qq.com
+Email: seqoneg267@gmail.com
 Institution: Chongqing University of Technology
 ```
