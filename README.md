@@ -114,9 +114,9 @@ training logs
 
 The root `.gitignore` prevents newly created local datasets, checkpoints, and generated training outputs from being added accidentally; it does not remove files already tracked by Git. Demonstration data and trained checkpoints may be provided through GitHub Releases, an institutional repository, or reasonable request to the corresponding author. See [DATA_AND_MODEL_AVAILABILITY.md](DATA_AND_MODEL_AVAILABILITY.md).
 
-## Legacy stage-aware code
+## Training-only stage-aware extension
 
-Some historical real-robot checkpoints may contain an auxiliary stage-prediction head for state-dict compatibility. This module is not treated as a core PC-DVIL contribution and is not required for the main drift or simulation TFC analysis.
+The deployed real-robot checkpoint contains an auxiliary stage-prediction head used only during training. The fixed v7 inference runner can instantiate this head for exact state-dict compatibility, but it is not evaluated and does not alter action prediction during deployment. This extension is not treated as a core PC-DVIL contribution and is not used in the main loss-wise or simulation TFC studies.
 
 ## Citation
 
