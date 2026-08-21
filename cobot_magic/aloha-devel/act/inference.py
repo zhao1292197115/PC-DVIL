@@ -103,7 +103,13 @@ def get_model_config(args):
                          'dinov2_repo': args.dinov2_repo,
                          'dinov2_weights': args.dinov2_weights,
                          'dinov2_train_layers': args.dinov2_train_layers,
-                         'dinov2_pool': args.dinov2_pool
+                         'dinov2_pool': args.dinov2_pool,
+                         # v7 Stage Prediction Head options. These must match training
+                         # when loading a v7 checkpoint trained with --use_stage_pred.
+                         'use_stage_pred': bool(args.use_stage_pred),
+                         'stage_num': int(args.stage_num),
+                         'stage_loss_weight': 0.0,
+                         'stage_hidden_dim': int(args.stage_hidden_dim)
                          }
     elif args.policy_class == 'CNNMLP':
         policy_config = {'lr': args.lr,
@@ -775,6 +781,13 @@ def get_arguments():
     # Practical real-robot cache: reuses the predicted action chunk for cache_interval publish steps.
     parser.add_argument('--feature_cache', action='store_true', help='enable real-time action-query cache')
     parser.add_argument('--cache_interval', action='store', type=int, default=2, required=False)
+
+    # v7 Stage Prediction Head options. Add --use_stage_pred for v7 checkpoints
+    # trained with the stage auxiliary head; omit it for old / no-stage checkpoints.
+    parser.add_argument('--use_stage_pred', action='store_true',
+                        help='enable v7 stage prediction head when loading v7 checkpoint')
+    parser.add_argument('--stage_num', action='store', type=int, default=5, required=False)
+    parser.add_argument('--stage_hidden_dim', action='store', type=int, default=128, required=False)
 
     # for Diffusion
     parser.add_argument('--observation_horizon', action='store', type=int, help='observation_horizon', default=1, required=False)
