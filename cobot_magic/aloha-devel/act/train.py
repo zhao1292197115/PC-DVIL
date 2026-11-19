@@ -32,7 +32,7 @@ def apply_real_trir_visual_perturbation(
     max_erase_ratio=0.10,
 ):
     """
-    V6 real-robot TRIR++ visual perturbation.
+    TRIR++ visual perturbation for real-robot demonstrations.
     image_data: [B, num_cam, C, H, W], range [0, 1].
     Training-time only. It simulates unseen illumination/exposure/background changes
     without changing qpos/action labels.
@@ -157,7 +157,7 @@ def train(args):
                          'dinov2_weights': args.dinov2_weights,
                          'dinov2_train_layers': args.dinov2_train_layers,
                          'dinov2_pool': args.dinov2_pool,
-                         # V6 grasp-aware loss options; training only
+                         # Optional grasp-aware loss settings; training only
                          'use_grasp_weight': args.use_grasp_weight,
                          'grasp_stage_weight': args.grasp_stage_weight,
                          'grasp_arm_dim_weight': args.grasp_arm_dim_weight,
@@ -165,7 +165,7 @@ def train(args):
                          'grasp_gripper_index': args.grasp_gripper_index,
                          'grasp_dim_start': args.grasp_dim_start,
                          'grasp_dim_end': args.grasp_dim_end,
-                         # V7 generic stage-aware options; training only
+                         # Generic stage-aware supervision settings; training only
                          'use_auto_stage_weight': args.use_auto_stage_weight,
                          'stage_weight_max': args.stage_weight_max,
                          'stage_event_window': args.stage_event_window,
@@ -537,7 +537,7 @@ def get_arguments():
     parser.add_argument('--trir_erasing_prob', action='store', type=float, default=0.0)
     parser.add_argument('--trir_max_erase_ratio', action='store', type=float, default=0.10)
 
-    # V6 grasp-aware loss. Defaults match ALOHA-style 14D qpos: right arm dims 7:14, right gripper index 13.
+    # Optional grasp-aware loss. Defaults match ALOHA-style 14D qpos: right arm dims 7:14, right gripper index 13.
     parser.add_argument('--use_grasp_weight', action='store_true', help='enable grasp-stage weighted imitation loss')
     parser.add_argument('--grasp_stage_weight', action='store', type=float, default=3.0)
     parser.add_argument('--grasp_arm_dim_weight', action='store', type=float, default=2.0)
@@ -546,7 +546,7 @@ def get_arguments():
     parser.add_argument('--grasp_dim_start', action='store', type=int, default=7)
     parser.add_argument('--grasp_dim_end', action='store', type=int, default=14)
 
-    # V7 generic auto stage-aware loss. This is not tied to battery/right-arm tasks.
+    # Generic auto stage-aware loss, independent of a specific arm or task.
     parser.add_argument('--use_auto_stage_weight', action='store_true',
                         help='enable generic auto stage-aware weighting from action transitions')
     parser.add_argument('--stage_weight_max', action='store', type=float, default=3.0,
