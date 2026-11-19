@@ -116,7 +116,7 @@ The root `.gitignore` prevents newly created local datasets, checkpoints, and ge
 
 ## Training-only stage-aware extension
 
-The deployed real-robot checkpoint contains an auxiliary stage-prediction head used only during training. The fixed v7 inference runner can instantiate this head for exact state-dict compatibility, but it is not evaluated and does not alter action prediction during deployment. This extension is not treated as a core PC-DVIL contribution and is not used in the main loss-wise or simulation TFC studies.
+The deployed real-robot checkpoint contains an auxiliary stage-prediction head used only for training supervision. The inference runner instantiates this head for state-dict compatibility; it is not evaluated and does not alter action prediction during deployment. This auxiliary supervision is separate from the core PC-DVIL visual robustness and feature-caching mechanisms.
 
 ## Citation
 
