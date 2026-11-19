@@ -104,8 +104,7 @@ def get_model_config(args):
                          'dinov2_weights': args.dinov2_weights,
                          'dinov2_train_layers': args.dinov2_train_layers,
                          'dinov2_pool': args.dinov2_pool,
-                         # v7 Stage Prediction Head options. These must match training
-                         # when loading a v7 checkpoint trained with --use_stage_pred.
+                         # Auxiliary stage-prediction head settings; match the training configuration.
                          'use_stage_pred': bool(args.use_stage_pred),
                          'stage_num': int(args.stage_num),
                          'stage_loss_weight': 0.0,
@@ -289,8 +288,7 @@ def inference_process(args, config, ros_operator, policy, stats, t, pre_action):
             # Refresh/reuse visual features according to the current rollout timestep.
             set_feature_cache_step(policy, t)
         start_time = time.time()
-        # v5: inference-only safe mode. This keeps the rollout closed-loop but prevents
-        # PyTorch from building a computation graph and uses AMP on CUDA to reduce VRAM.
+        # Run inference without building an autograd graph; CUDA AMP reduces inference memory use.
         with torch.inference_mode():
             if torch.cuda.is_available():
                 with torch.cuda.amp.autocast(enabled=True):
@@ -820,10 +818,9 @@ def get_arguments():
     parser.add_argument('--feature_cache', action='store_true', help='enable feature-level Temporal Feature Cache (TFC)')
     parser.add_argument('--cache_interval', action='store', type=int, default=2, required=False)
 
-    # v7 Stage Prediction Head options. Add --use_stage_pred for v7 checkpoints
-    # trained with the stage auxiliary head; omit it for old / no-stage checkpoints.
+    # Auxiliary stage-prediction head settings; enable when the checkpoint was trained with this head.
     parser.add_argument('--use_stage_pred', action='store_true',
-                        help='enable v7 stage prediction head when loading v7 checkpoint')
+                        help='enable the auxiliary stage-prediction head')
     parser.add_argument('--stage_num', action='store', type=int, default=5, required=False)
     parser.add_argument('--stage_hidden_dim', action='store', type=int, default=128, required=False)
 
