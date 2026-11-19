@@ -43,7 +43,8 @@ def get_sinusoid_encoding_table(n_position, d_hid):
 
 class DETRVAE(nn.Module):
     """ This is the DETR module that performs object detection """
-    def __init__(self, backbones, depth_backbones, transformer, encoder, state_dim, num_queries, camera_names, kl_weight):
+    def __init__(self, backbones, depth_backbones, transformer, encoder, state_dim, num_queries, camera_names, kl_weight,
+                 feature_cache=False, cache_interval=1):
         """ Initializes the model.
         Parameters:
             backbones: torch module of the backbone to be used. See backbone.py
@@ -62,6 +63,16 @@ class DETRVAE(nn.Module):
         self.action_head = nn.Linear(hidden_dim, state_dim)
         self.query_embed = nn.Embedding(num_queries, hidden_dim)
         self.kl_weight = kl_weight
+
+        # Inference-only feature-level Temporal Feature Cache (TFC).
+        # Visual features are refreshed sparsely; proprioception and ACT decoding remain per query.
+        self.feature_cache = bool(feature_cache)
+        self.cache_interval = max(1, int(cache_interval))
+        self._cache_step = 0
+        self._cached_cam_features = None
+        self._cached_cam_pos = None
+        self._cache_hits = 0
+        self._cache_updates = 0
 
         if backbones is not None:
             # print("backbones[0]", backbones[0])
@@ -95,6 +106,29 @@ class DETRVAE(nn.Module):
             self.encoder_joint_proj = nn.Linear(state_dim, hidden_dim)  # project qpos to embedding
             self.latent_proj = nn.Linear(hidden_dim, self.latent_dim*2)  # project hidden state to latent std, var
             self.register_buffer('pos_table', get_sinusoid_encoding_table(1+1+num_queries, hidden_dim))  # [CLS], qpos, a_seq
+
+    def reset_feature_cache(self):
+        """Clear cached visual features at the beginning of each rollout."""
+        self._cache_step = 0
+        self._cached_cam_features = None
+        self._cached_cam_pos = None
+        self._cache_hits = 0
+        self._cache_updates = 0
+
+    def set_feature_cache_step(self, step: int):
+        """Set current rollout timestep for sparse visual feature updates."""
+        self._cache_step = int(step)
+
+    def _should_update_feature_cache(self):
+        if not self.feature_cache:
+            return True
+        if self._cached_cam_features is None or self._cached_cam_pos is None:
+            return True
+        return (self._cache_step % self.cache_interval) == 0
+
+    def get_feature_cache_stats(self):
+        return {'hits': int(self._cache_hits), 'updates': int(self._cache_updates),
+                'interval': int(self.cache_interval)}
 
     def forward(self, image, depth_image, robot_state, actions=None, action_is_pad=None):
         """
@@ -137,23 +171,30 @@ class DETRVAE(nn.Module):
             mu = logvar = None
             latent_sample = torch.zeros([bs, self.latent_dim], dtype=torch.float32).to(robot_state.device)
             latent_input = self.latent_out_proj(latent_sample)
-        # Image observation features and position embeddings
-        all_cam_features = []
-        all_cam_depth_features = []
-        all_cam_pos = []
-        for cam_id, cam_name in enumerate(self.camera_names):
-            # features, pos = self.backbones[0](image[:, cam_id])  # HARDCODED
-            features, src_pos = self.backbones[cam_id](image[:, cam_id]) # HARDCODED
-            # image_test = image[:, cam_id][:, 0].unsqueeze(dim=1)
-            # print("depth_encoder:", self.depth_encoder(image_test))
-            features = features[0]  # take the last layer feature
-            src_pos = src_pos[0]
-            if self.depth_backbones is not None and depth_image is not None:
-                features_depth = self.depth_backbones[cam_id](depth_image[:, cam_id].unsqueeze(dim=1))
-                all_cam_features.append(self.input_proj(torch.cat([features, features_depth], axis=1)))
-            else:
-                all_cam_features.append(self.input_proj(features))
-            all_cam_pos.append(src_pos)
+        # Feature-level TFC caches projected multi-camera visual features during inference.
+        # Current proprioception and ACT decoding are still processed at every policy query.
+        use_cached_features = (not is_training) and self.feature_cache and (not self._should_update_feature_cache())
+        if use_cached_features:
+            self._cache_hits += 1
+            all_cam_features = self._cached_cam_features
+            all_cam_pos = self._cached_cam_pos
+        else:
+            all_cam_features = []
+            all_cam_pos = []
+            for cam_id, cam_name in enumerate(self.camera_names):
+                features, src_pos = self.backbones[cam_id](image[:, cam_id])
+                features = features[0]
+                src_pos = src_pos[0]
+                if self.depth_backbones is not None and depth_image is not None:
+                    features_depth = self.depth_backbones[cam_id](depth_image[:, cam_id].unsqueeze(dim=1))
+                    all_cam_features.append(self.input_proj(torch.cat([features, features_depth], axis=1)))
+                else:
+                    all_cam_features.append(self.input_proj(features))
+                all_cam_pos.append(src_pos)
+            if (not is_training) and self.feature_cache:
+                self._cache_updates += 1
+                self._cached_cam_features = [feat.detach() for feat in all_cam_features]
+                self._cached_cam_pos = [pos.detach() for pos in all_cam_pos]
         # proprioception features
         robot_state_input = self.input_proj_robot_state(robot_state)
         robot_state_input = torch.unsqueeze(robot_state_input, axis=0)
@@ -524,7 +565,9 @@ def build(args):
         state_dim=state_dim,
         num_queries=args.chunk_size,
         camera_names=args.camera_names,
-        kl_weight=args.kl_weight
+        kl_weight=args.kl_weight,
+        feature_cache=getattr(args, 'feature_cache', False),
+        cache_interval=getattr(args, 'cache_interval', 1),
     )
 
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
