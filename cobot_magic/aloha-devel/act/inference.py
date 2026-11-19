@@ -109,7 +109,10 @@ def get_model_config(args):
                          'use_stage_pred': bool(args.use_stage_pred),
                          'stage_num': int(args.stage_num),
                          'stage_loss_weight': 0.0,
-                         'stage_hidden_dim': int(args.stage_hidden_dim)
+                         'stage_hidden_dim': int(args.stage_hidden_dim),
+                         # Feature-level TFC settings are passed to DETRVAE.
+                         'feature_cache': bool(args.feature_cache),
+                         'cache_interval': max(1, int(args.cache_interval))
                          }
     elif args.policy_class == 'CNNMLP':
         policy_config = {'lr': args.lr,
@@ -173,6 +176,36 @@ def make_policy(policy_class, policy_config):
     else:
         raise NotImplementedError
     return policy
+
+
+def _call_on_modules(root, fn_name, *args, **kwargs):
+    """Call a cache helper on every submodule that implements it."""
+    for module in root.modules():
+        fn = getattr(module, fn_name, None)
+        if callable(fn):
+            fn(*args, **kwargs)
+
+
+def reset_feature_cache(policy):
+    _call_on_modules(policy, 'reset_feature_cache')
+
+
+def set_feature_cache_step(policy, step):
+    _call_on_modules(policy, 'set_feature_cache_step', step)
+
+
+def collect_feature_cache_stats(policy):
+    hits = 0
+    updates = 0
+    interval = None
+    for module in policy.modules():
+        fn = getattr(module, 'get_feature_cache_stats', None)
+        if callable(fn):
+            stat = fn()
+            hits += int(stat.get('hits', 0))
+            updates += int(stat.get('updates', 0))
+            interval = stat.get('interval', interval)
+    return hits, updates, interval
 
 
 def get_image(observation, camera_names):
@@ -252,6 +285,9 @@ def inference_process(args, config, ros_operator, policy, stats, t, pre_action):
         curr_depth_image = None
         if args.use_depth_image:
             curr_depth_image = get_depth_image(obs, config['camera_names'])
+        if config.get('feature_cache', False):
+            # Refresh/reuse visual features according to the current rollout timestep.
+            set_feature_cache_step(policy, t)
         start_time = time.time()
         # v5: inference-only safe mode. This keeps the rollout closed-loop but prevents
         # PyTorch from building a computation graph and uses AMP on CUDA to reduce VRAM.
@@ -321,8 +357,8 @@ def model_inference(args, config, ros_operator, save_episode=True):
     chunk_size = config['policy_config']['chunk_size']
     effective_lookahead_step = args.pos_lookahead_step
     if config.get('feature_cache', False):
-        effective_lookahead_step = max(1, int(config.get('cache_interval', 2)))
-        print(f"[Real Cache] enabled: reuse action chunk for {effective_lookahead_step} publish steps.")
+        print(f"[Feature-TFC] enabled: cache_interval={config.get('cache_interval', 2)}. "
+              "The policy is queried every publish step; only visual features are reused.")
 
     # 发布基础的姿态
     left0 = [-0.00133514404296875, 0.00209808349609375, 0.01583099365234375, -0.032616615295410156, -0.00286102294921875, 0.00095367431640625, 3.557830810546875]
@@ -340,6 +376,8 @@ def model_inference(args, config, ros_operator, save_episode=True):
             # 每个回合的步数
             t = 0
             max_t = 0
+            if config.get('feature_cache', False):
+                reset_feature_cache(policy)
             rate = rospy.Rate(args.publish_rate)
             if config['temporal_agg']:
                 all_time_actions = np.zeros([max_publish_step, max_publish_step + chunk_size, config['state_dim']])
@@ -778,8 +816,8 @@ def get_arguments():
                         default='/home/d510/cobot_magic/dinov2_local/dinov2_vits14_pretrain.pth', required=False)
     parser.add_argument('--dinov2_train_layers', action='store', type=int, default=8, required=False)
     parser.add_argument('--dinov2_pool', action='store', type=int, default=2, required=False)
-    # Practical real-robot cache: reuses the predicted action chunk for cache_interval publish steps.
-    parser.add_argument('--feature_cache', action='store_true', help='enable real-time action-query cache')
+    # Feature-level TFC: visual features are refreshed sparsely; policy/action decoding stays per step.
+    parser.add_argument('--feature_cache', action='store_true', help='enable feature-level Temporal Feature Cache (TFC)')
     parser.add_argument('--cache_interval', action='store', type=int, default=2, required=False)
 
     # v7 Stage Prediction Head options. Add --use_stage_pred for v7 checkpoints
