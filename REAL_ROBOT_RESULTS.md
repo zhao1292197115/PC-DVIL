@@ -14,7 +14,7 @@ The task is evaluated over four ordered stages: grasping, placement, stabilizati
 | Condition | Stage 1 failures | Stage 2 failures | Stage 3 failures | Stage 4 failures |
 |---|---:|---:|---:|---:|
 | Condition 1 | 0 | 0 | 2 | 1 |
-| Condition 2 | 0 | 1 | 3 | 1 |
+| Condition 2 | 0 | 0 | 3 | 2 |
 
 ## Trial-level failure indices
 
