@@ -203,9 +203,8 @@ class DETRVAE(nn.Module):
         src = torch.cat(all_cam_features, axis=3)
         src_pos = torch.cat(all_cam_pos, axis=3)
 
-        # V6 TRIR++: expose a compact visual feature summary for training-time
-        # feature consistency. This attribute is read only during training;
-        # inference output and model architecture stay unchanged.
+        # Expose a compact visual feature summary for training-time perturbation consistency.
+        # This attribute is read during training and does not change inference outputs.
         self.last_visual_feature_summary = F.normalize(src.mean(dim=(-2, -1)), dim=1)
 
         hs = self.transformer(self.query_embed.weight,
