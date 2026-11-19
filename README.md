@@ -28,9 +28,9 @@ PC-DVIL/
 | `act-baseline` | ACT-3Cam | ResNet | No | No |
 | `act-main` | Dense-ACT | DINOv2 ViT-S/14, last8, pool2 | No | Optional simulation TFC |
 | `act-main_trir` | PC-DVIL | DINOv2 ViT-S/14, last8, pool2 | Yes | Simulation TFC (`K_c = 2`) |
-| `cobot_magic` | Real-robot PC-DVIL | Three-view dense visual encoder | Yes | Fixed two-step policy-query schedule |
+| `cobot_magic` | Real-robot PC-DVIL | Three-view dense visual encoder | Yes | Feature-level TFC (`K_c = 2`) |
 
-Simulation TFC reuses dense visual features while retaining current proprioception and fresh action decoding at every control step. The released real-robot runner instead queries the policy every two publish steps and obtains the intervening command from the previously predicted action chunk through temporal aggregation; this is not feature-level TFC.
+Simulation and real-robot TFC use the same feature-level caching principle: projected multi-view visual features are refreshed every `K_c` policy calls, while current proprioception is processed and the ACT transformer/action decoder is executed at every policy query. The real-robot runner uses a 40 Hz publish loop and `K_c = 2`; feature caching does not change the policy-query or action-publication schedule.
 
 ## Tested environments
 
@@ -88,7 +88,7 @@ DINOv2 trainable blocks: last 8
 Dense-token pooling: 2
 Fixed evaluation poses: 50 poses, seed1000
 Simulation TFC refresh interval: K_c = 2
-Real-robot policy-query interval: 2 publish steps
+Real-robot feature refresh interval: `K_c = 2` (policy query and action decoding remain per publish step)
 Demonstrations: 50 episodes, randomly split 40 training / 10 validation (80/20)
 Simulation training: 2,000 epochs, batch size 2
 Real-robot training: 6,000 epochs, batch size 4
