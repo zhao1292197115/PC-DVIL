@@ -51,8 +51,7 @@ class ACTPolicy(nn.Module):
         self.loss_function = args_override['loss_function']
         self.action_dim = 16 if bool(args_override.get('use_robot_base', False)) else 14
 
-        # V6 legacy option: task-specific grasp weighting. Kept for compatibility,
-        # but it is OFF unless --use_grasp_weight is explicitly passed.
+        # Optional task-specific grasp weighting; disabled unless --use_grasp_weight is passed.
         self.use_grasp_weight = bool(args_override.get('use_grasp_weight', False))
         self.grasp_stage_weight = float(args_override.get('grasp_stage_weight', 3.0))
         self.grasp_arm_dim_weight = float(args_override.get('grasp_arm_dim_weight', 2.0))
@@ -61,9 +60,8 @@ class ACTPolicy(nn.Module):
         self.grasp_dim_start = int(args_override.get('grasp_dim_start', 7))
         self.grasp_dim_end = int(args_override.get('grasp_dim_end', 14))
 
-        # V7: generic auto stage-aware loss. This does not assume a specific task
-        # such as right-arm battery grasping. It detects high-change moments from
-        # the demonstration action sequence and upweights those transition windows.
+        # Generic auto stage-aware loss. It detects high-change moments in the
+        # demonstration action sequence and upweights the corresponding transition windows.
         self.use_auto_stage_weight = bool(args_override.get('use_auto_stage_weight', False))
         self.stage_weight_max = float(args_override.get('stage_weight_max', 3.0))
         self.stage_event_window = int(args_override.get('stage_event_window', 8))
@@ -73,10 +71,8 @@ class ACTPolicy(nn.Module):
         self.stage_min_score_eps = float(args_override.get('stage_min_score_eps', 1e-6))
         self.stage_gripper_indices = self._parse_stage_indices(args_override.get('stage_gripper_indices', '6,13'))
 
-        # V7: optional stage-prediction auxiliary head. It is used only during
-        # training. At inference, the action path is unchanged. The head is
-        # attached to ACTPolicy rather than DETRVAE so older model code remains
-        # minimally invasive.
+        # Optional stage-prediction auxiliary head used only for training supervision.
+        # It is attached to ACTPolicy; the inference action path remains unchanged.
         self.use_stage_pred = bool(args_override.get('use_stage_pred', False))
         self.stage_num = int(args_override.get('stage_num', 5))
         self.stage_loss_weight = float(args_override.get('stage_loss_weight', 0.05))
@@ -93,19 +89,19 @@ class ACTPolicy(nn.Module):
                 self.optimizer.add_param_group({'params': self.stage_head.parameters(),
                                                 'lr': float(args_override.get('lr', 1e-5))})
             except Exception as e:
-                print('[V7][WARN] failed to add stage_head param group:', e)
+                print('[WARN] failed to add stage_head param group:', e)
 
         print(f'KL Weight {self.kl_weight}')
         if self.use_auto_stage_weight:
-            print(f'[V7] auto stage-aware loss: max_weight={self.stage_weight_max}, '
+            print(f'Auto stage-aware loss: max_weight={self.stage_weight_max}, '
                   f'window={self.stage_event_window}, speed={self.stage_speed_power}, '
                   f'acc={self.stage_acc_power}, gripper={self.stage_gripper_power}, '
                   f'indices={self.stage_gripper_indices}')
         if self.use_stage_pred:
-            print(f'[V7] stage prediction head: stage_num={self.stage_num}, '
+            print(f'Stage prediction head: stage_num={self.stage_num}, '
                   f'weight={self.stage_loss_weight}, hidden={self.stage_hidden_dim}')
         if self.use_grasp_weight:
-            print(f'[V6 compatibility] grasp-aware loss: stage_weight={self.grasp_stage_weight}, '
+            print(f'Grasp-aware loss: stage_weight={self.grasp_stage_weight}, '
                   f'arm_dim_weight={self.grasp_arm_dim_weight}, window={self.grasp_window}, '
                   f'gripper_index={self.grasp_gripper_index}, dims=[{self.grasp_dim_start}:{self.grasp_dim_end}]')
 
@@ -338,8 +334,8 @@ class ACTPolicy(nn.Module):
             else:
                 loss_dict['loss'] = loss_dict['l1']
 
-            # V7 stage-prediction auxiliary task is training-only and small.
-            # Validation/inference stay on the same action path.
+            # Stage-prediction auxiliary supervision is applied during training only.
+            # Validation and inference retain the same action path.
             if self.training and self.use_stage_pred:
                 stage_loss, stage_acc = self._compute_stage_prediction_loss(a_hat, actions, action_is_pad)
                 loss_dict['stage_loss'] = stage_loss
@@ -358,9 +354,8 @@ class ACTPolicy(nn.Module):
         return self.state_dict()
 
     def deserialize(self, model_dict):
-        # strict=False allows inference with the same v7 policy even when a
-        # checkpoint contains train-only stage_head parameters, or when old v5/v6
-        # checkpoints do not contain them.
+        # Non-strict loading accommodates the training-only stage_head parameters,
+        # which are not part of the inference action path.
         result = self.load_state_dict(model_dict, strict=False)
         missing = getattr(result, 'missing_keys', [])
         unexpected = getattr(result, 'unexpected_keys', [])
