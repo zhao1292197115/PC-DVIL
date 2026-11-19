@@ -1,6 +1,6 @@
 # Reproducibility Guide
 
-Run each entry script with `-h` before a long experiment because retained snapshots may contain slightly different flags.
+Before running an experiment, check the selected entry script's `-h` output to confirm its available command-line options.
 
 ## 1. Simulation environment
 
@@ -65,7 +65,7 @@ To reproduce the other loss-wise rows, keep every common flag above unchanged, u
 
 The Dense-ACT reference is the configuration in Section 3 with no `--use_trir` flag. All loss-wise labels above retain the standard reconstruction and KL terms.
 
-All simulation models use AdamW with weight decay `1e-4`. Validation is run every five epochs, and `policy_best.ckpt` is the checkpoint with the lowest validation loss. Run the retained entry script with `-h` before training because historical snapshots may expose slightly different flag names.
+All simulation models use AdamW with weight decay `1e-4`. Validation is run every five epochs, and `policy_best.ckpt` is the checkpoint with the lowest validation loss. Check the selected training entry script with `-h` to confirm its available command-line options.
 
 ## 5. Fixed-pose simulation evaluation
 
@@ -150,6 +150,6 @@ export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:64
 python3 act/inference.py   --ckpt_dir ../train/dinov2_trirpp_stageaware_battery_6000   --ckpt_name policy_best.ckpt   --ckpt_stats_name dataset_stats.pkl   --policy_class ACT   --backbone dinov2_vits14   --dinov2_repo ../dinov2_local/dinov2-main   --dinov2_weights ../dinov2_local/dinov2_vits14_pretrain.pth   --dinov2_train_layers 8   --dinov2_pool 2   --chunk_size 100   --hidden_dim 512   --dim_feedforward 3200   --enc_layers 4   --dec_layers 7   --nheads 8   --temporal_agg True   --feature_cache   --cache_interval 2   --use_stage_pred   --stage_num 5   --stage_hidden_dim 128   --publish_rate 40
 ```
 
-In the real-robot runner, `--feature_cache --cache_interval 2` enable inference-only feature-level TFC. The policy is queried at every 40 Hz publish step. At rollout timestep `t`, the three-view visual backbone and feature projection are refreshed when `t mod K_c = 0`; on intervening steps, the previously projected visual features and positional encodings are reused. The current proprioceptive state is still projected at every query, and the ACT transformer and action head generate a fresh action chunk at every query. Thus, `K_c = 2` controls visual-feature refresh frequency, not policy-query frequency or action-chunk reuse.
+In the real-robot runner, `--feature_cache --cache_interval 2` enable inference-only feature-level TFC. The policy is queried at every 40 Hz publish step. At rollout timestep `t`, the three-view visual backbone and feature projection are refreshed when `t mod K_c = 0`; on intervening steps, the previously projected visual features and positional encodings are reused. The current proprioceptive state is still projected at every query, and the ACT transformer and action head generate a fresh action chunk at every query. Thus, `K_c = 2` controls visual-feature refresh frequency; policy queries, proprioception updates, action decoding, and command publication continue at every control step.
 
-The deployed checkpoint contains a training-only auxiliary `stage_head`. The fixed v7 runner instantiates that head through `--use_stage_pred --stage_num 5 --stage_hidden_dim 128` solely for exact state-dict compatibility. The head is not evaluated and does not alter the real-robot action path.
+The deployed checkpoint contains a training-only auxiliary `stage_head`. The real-robot inference runner instantiates that head through `--use_stage_pred --stage_num 5 --stage_hidden_dim 128` for state-dict compatibility. The head is not evaluated and does not alter the real-robot action path.
